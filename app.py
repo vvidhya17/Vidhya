@@ -10,35 +10,38 @@ st.set_page_config(page_title="AI Health Pro", layout="wide")
 st.title("AI Based Multi Disease Prediction and Recommendation System")
 
 # -------------------------------
-# SIDEBAR FILTERS (Power BI style)
-# -------------------------------
-st.sidebar.header("Patient Filters")
-
-age = st.sidebar.slider("Age", 0, 100, 25)
-gender = st.sidebar.selectbox("Gender", ["Male","Female"])
-bmi = st.sidebar.selectbox("BMI", ["LOW","MEDIUM","HIGH"])
-bp = st.sidebar.selectbox("Blood Pressure", ["LOW","MEDIUM","HIGH"])
-
-glucose = st.sidebar.selectbox("Glucose", ["LOW","MEDIUM","HIGH"])
-chol = st.sidebar.selectbox("Cholesterol", ["LOW","MEDIUM","HIGH"])
-activity = st.sidebar.selectbox("Activity", ["LOW","MEDIUM","HIGH"])
-
-smoking = st.sidebar.selectbox("Smoking", ["No","Yes"])
-alcohol = st.sidebar.selectbox("Alcohol", ["No","Yes"])
-
-fever = st.sidebar.selectbox("Fever", ["No","Yes"])
-chest = st.sidebar.selectbox("Chest Pain", ["No","Yes"])
-
-predict_btn = st.sidebar.button("🔍 Predict Result")
-
-# -------------------------------
 # CONVERT FUNCTION
 # -------------------------------
 def convert(v):
     return 0 if v=="LOW" else 1 if v=="MEDIUM" else 2
 
 # -------------------------------
-# DATA
+# INPUTS (TOP - MOBILE FRIENDLY)
+# -------------------------------
+st.markdown("### Enter Patient Details")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    age = st.slider("Age", 0, 100, 25)
+    gender = st.selectbox("Gender", ["Male","Female"])
+    bmi = st.selectbox("BMI", ["LOW","MEDIUM","HIGH"])
+
+with col2:
+    bp = st.selectbox("Blood Pressure", ["LOW","MEDIUM","HIGH"])
+    glucose = st.selectbox("Glucose", ["LOW","MEDIUM","HIGH"])
+    chol = st.selectbox("Cholesterol", ["LOW","MEDIUM","HIGH"])
+
+with col3:
+    activity = st.selectbox("Activity", ["LOW","MEDIUM","HIGH"])
+    smoking = st.selectbox("Smoking", ["No","Yes"])
+    alcohol = st.selectbox("Alcohol", ["No","Yes"])
+
+fever = st.selectbox("Fever", ["No","Yes"])
+chest = st.selectbox("Chest Pain", ["No","Yes"])
+
+# -------------------------------
+# DATA (MODEL)
 # -------------------------------
 np.random.seed(1)
 
@@ -71,106 +74,100 @@ for d in ['Diabetes','Heart','Hypertension','Obesity','Stroke','Liver']:
     models[d] = m
 
 # -------------------------------
-# PREDICTION
+# AUTO PREDICTION (NO BUTTON)
 # -------------------------------
-if predict_btn:
 
-    # Age conversion
-    if age < 30:
-        age_val = 0
-    elif age < 60:
-        age_val = 1
+if age < 30:
+    age_val = 0
+elif age < 60:
+    age_val = 1
+else:
+    age_val = 2
+
+gender_val = 0 if gender=="Male" else 1
+bmi_val = convert(bmi)
+bp_val = convert(bp)
+glucose_val = convert(glucose)
+chol_val = convert(chol)
+activity_val = convert(activity)
+
+smoking_val = 1 if smoking=="Yes" else 0
+alcohol_val = 1 if alcohol=="Yes" else 0
+
+symptoms_val = (1 if fever=="Yes" else 0) + (1 if chest=="Yes" else 0)
+
+input_df = pd.DataFrame([{
+    'Age':age_val,'Gender':gender_val,'BMI':bmi_val,'BP':bp_val,'Glucose':glucose_val,
+    'Cholesterol':chol_val,'Activity':activity_val,'Smoking':smoking_val,
+    'Alcohol':alcohol_val,'Symptoms':symptoms_val
+}])
+
+# -------------------------------
+# RESULTS
+# -------------------------------
+st.markdown("## Prediction Results")
+
+results = {}
+for d,m in models.items():
+    p = m.predict_proba(input_df)[0][1]
+    results[d] = p
+    st.write(f"{d} → {round(p,2)}")
+
+# KPI Cards
+st.markdown("### Key Health Indicators")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Diabetes", round(results['Diabetes'],2))
+c2.metric("Heart", round(results['Heart'],2))
+c3.metric("Stroke", round(results['Stroke'],2))
+
+st.markdown("---")
+
+# -------------------------------
+# DASHBOARD
+# -------------------------------
+st.markdown("## Dashboard")
+
+colA, colB = st.columns(2)
+
+with colA:
+    st.subheader("Risk Comparison")
+    st.bar_chart(results)
+
+with colB:
+    st.subheader("Distribution")
+    fig2, ax2 = plt.subplots(figsize=(3,3))
+    ax2.pie(results.values(), labels=None, autopct='%1.1f%%')
+    ax2.legend(results.keys(), loc="center left", bbox_to_anchor=(1, 0.5), fontsize=8)
+    st.pyplot(fig2)
+
+colC, colD = st.columns(2)
+
+with colC:
+    st.subheader("BMI & Glucose Distribution")
+    fig3, ax3 = plt.subplots(figsize=(4,3))
+    sns.violinplot(data=data[['BMI','Glucose']], ax=ax3)
+    st.pyplot(fig3)
+
+with colD:
+    st.subheader("Correlation Heatmap")
+    fig4, ax4 = plt.subplots(figsize=(4,3))
+    sns.heatmap(data.corr(), cmap='coolwarm', annot=False, ax=ax4)
+    st.pyplot(fig4)
+
+# -------------------------------
+# RECOMMENDATIONS
+# -------------------------------
+st.markdown("---")
+st.subheader("Recommendations")
+
+for disease, prob in results.items():
+    if prob > 0.6:
+        st.warning(f"High risk of {disease}")
+    elif prob > 0.3:
+        st.info(f"Moderate risk of {disease}")
     else:
-        age_val = 2
+        st.success(f"Low risk of {disease}")
 
-    gender_val = 0 if gender=="Male" else 1
-    bmi_val = convert(bmi)
-    bp_val = convert(bp)
-    glucose_val = convert(glucose)
-    chol_val = convert(chol)
-    activity_val = convert(activity)
-
-    smoking_val = 1 if smoking=="Yes" else 0
-    alcohol_val = 1 if alcohol=="Yes" else 0
-
-    symptoms_val = (1 if fever=="Yes" else 0) + (1 if chest=="Yes" else 0)
-
-    input_df = pd.DataFrame([{
-        'Age':age_val,'Gender':gender_val,'BMI':bmi_val,'BP':bp_val,'Glucose':glucose_val,
-        'Cholesterol':chol_val,'Activity':activity_val,'Smoking':smoking_val,
-        'Alcohol':alcohol_val,'Symptoms':symptoms_val
-    }])
-
-    # -------------------------------
-    # RESULTS
-    # -------------------------------
-    st.subheader("Prediction Results")
-
-    results = {}
-    for d,m in models.items():
-        p = m.predict_proba(input_df)[0][1]
-        results[d] = p
-        st.write(f"{d} → {round(p,2)}")
-
-    # -------------------------------
-    # KPI CARDS
-    # -------------------------------
-    st.markdown("### Key Health Indicators")
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Diabetes Risk", round(results['Diabetes'],2))
-    c2.metric("Heart Risk", round(results['Heart'],2))
-    c3.metric("Stroke Risk", round(results['Stroke'],2))
-
-    st.markdown("---")
-
-    # -------------------------------
-    # DASHBOARD GRID
-    # -------------------------------
-    st.markdown("## Health Dashboard")
-
-    # Row 1
-    colA, colB = st.columns(2)
-
-    with colA:
-        st.subheader("Risk Comparison")
-        st.bar_chart(results)
-
-    with colB:
-        st.subheader("Risk Distribution")
-        fig2, ax2 = plt.subplots(figsize=(3,3))
-        ax2.pie(results.values(), labels=None, autopct='%1.1f%%')
-        ax2.legend(results.keys(), loc="center left", bbox_to_anchor=(1, 0.5), fontsize=8)
-        st.pyplot(fig2)
-
-    # Row 2
-    colC, colD = st.columns(2)
-
-    with colC:
-        st.subheader("BMI & Glucose Distribution")
-        fig5, ax5 = plt.subplots(figsize=(4,3))
-        sns.violinplot(data=data[['BMI','Glucose']], ax=ax5)
-        st.pyplot(fig5)
-
-    with colD:
-        st.subheader("Correlation Matrix")
-        fig4, ax4 = plt.subplots(figsize=(4,3))
-        sns.heatmap(data.corr(), cmap='coolwarm', annot=False, ax=ax4)
-        st.pyplot(fig4)
-
-    # -------------------------------
-    # RECOMMENDATIONS
-    # -------------------------------
-    st.markdown("---")
-    st.subheader("Recommendations")
-
-    for disease, prob in results.items():
-        if prob > 0.6:
-            st.warning(f"High risk of {disease} - Consult doctor")
-        elif prob > 0.3:
-            st.info(f"Moderate risk of {disease}")
-        else:
-            st.success(f"Low risk of {disease}")
-
-    score = sum(results.values())/len(results)
-    st.metric("Overall Risk Score", round(score,2))
+score = sum(results.values())/len(results)
+st.metric("Overall Risk Score", round(score,2))
