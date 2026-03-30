@@ -2,21 +2,21 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
+from mpl_toolkits.mplot3d import Axes3D
 
 st.set_page_config(page_title="AI Health Pro", layout="wide")
 
 st.title("AI Based Multi Disease Prediction and Recommendation System")
 
 # -------------------------------
-# CONVERT FUNCTION
+# CONVERT
 # -------------------------------
 def convert(v):
     return 0 if v=="LOW" else 1 if v=="MEDIUM" else 2
 
 # -------------------------------
-# INPUTS (TOP - MOBILE FRIENDLY)
+# INPUTS
 # -------------------------------
 st.markdown("### Enter Patient Details")
 
@@ -41,7 +41,7 @@ fever = st.selectbox("Fever", ["No","Yes"])
 chest = st.selectbox("Chest Pain", ["No","Yes"])
 
 # -------------------------------
-# DATA (MODEL)
+# DATA
 # -------------------------------
 np.random.seed(1)
 
@@ -74,107 +74,123 @@ for d in ['Diabetes','Heart','Hypertension','Obesity','Stroke','Liver']:
     models[d] = m
 
 # -------------------------------
-# BUTTON (ADD THIS)
+# BUTTON
 # -------------------------------
-predict_btn = st.button("🔍 Predict Result")
+if st.button("🔍 Predict Result"):
 
-# -------------------------------
-# PREDICTION (ONLY AFTER CLICK)
-# -------------------------------
-if predict_btn:
-
-    # Age conversion
-    if age < 30:
-        age_val = 0
-    elif age < 60:
-        age_val = 1
-    else:
-        age_val = 2
-
+    # encode
+    age_val = 0 if age < 30 else 1 if age < 60 else 2
     gender_val = 0 if gender=="Male" else 1
-    bmi_val = convert(bmi)
-    bp_val = convert(bp)
-    glucose_val = convert(glucose)
-    chol_val = convert(chol)
-    activity_val = convert(activity)
-
-    smoking_val = 1 if smoking=="Yes" else 0
-    alcohol_val = 1 if alcohol=="Yes" else 0
-
-    symptoms_val = (1 if fever=="Yes" else 0) + (1 if chest=="Yes" else 0)
 
     input_df = pd.DataFrame([{
-        'Age':age_val,'Gender':gender_val,'BMI':bmi_val,'BP':bp_val,'Glucose':glucose_val,
-        'Cholesterol':chol_val,'Activity':activity_val,'Smoking':smoking_val,
-        'Alcohol':alcohol_val,'Symptoms':symptoms_val
+        'Age':age_val,
+        'Gender':gender_val,
+        'BMI':convert(bmi),
+        'BP':convert(bp),
+        'Glucose':convert(glucose),
+        'Cholesterol':convert(chol),
+        'Activity':convert(activity),
+        'Smoking':1 if smoking=="Yes" else 0,
+        'Alcohol':1 if alcohol=="Yes" else 0,
+        'Symptoms':(1 if fever=="Yes" else 0) + (1 if chest=="Yes" else 0)
     }])
 
-    # -------------------------------
-    # RESULTS
-    # -------------------------------
     st.markdown("## Prediction Results")
 
     results = {}
     for d,m in models.items():
-        p = m.predict_proba(input_df)[0][1]
-        results[d] = p
-        st.write(f"{d} → {round(p,2)}")
+        results[d] = m.predict_proba(input_df)[0][1]
+        st.write(f"{d} → {round(results[d],2)}")
 
-    # KPI Cards
-    st.markdown("### Key Health Indicators")
+    st.markdown("---")
+
+    # -------------------------------
+    # DASHBOARD (STRICT 3 CHARTS)
+    # -------------------------------
+    st.markdown("## Health Dashboard")
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Diabetes", round(results['Diabetes'],2))
-    c2.metric("Heart", round(results['Heart'],2))
-    c3.metric("Stroke", round(results['Stroke'],2))
 
-    st.markdown("---")
+    # ---------------- RADAR ----------------
+    with c1:
+        st.caption("Radar")
 
-    # -------------------------------
-    # DASHBOARD
-    # -------------------------------
-    st.markdown("## Dashboard")
+        labels = list(results.keys())
+        values = list(results.values())
+        values += values[:1]
 
-    colA, colB = st.columns(2)
+        angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist()
+        angles += angles[:1]
 
-    with colA:
-        st.subheader("Risk Comparison")
-        st.bar_chart(results)
+        fig1 = plt.figure(figsize=(2.5,2.5))
+        ax1 = fig1.add_subplot(111, polar=True)
 
-    with colB:
-        st.subheader("Distribution")
-        fig2, ax2 = plt.subplots(figsize=(3,3))
-        ax2.pie(results.values(), labels=None, autopct='%1.1f%%')
-        ax2.legend(results.keys(), loc="center left", bbox_to_anchor=(1, 0.5), fontsize=8)
+        ax1.plot(angles, values)
+        ax1.fill(angles, values, alpha=0.1)
+
+        ax1.set_xticks(angles[:-1])
+        ax1.set_xticklabels(labels, fontsize=5)
+        ax1.set_yticks([])
+
+        st.pyplot(fig1)
+        plt.close(fig1)
+
+    # ---------------- 3D ----------------
+    with c2:
+        st.caption("3D")
+
+        fig2 = plt.figure(figsize=(2.5,2.5))
+        ax2 = fig2.add_subplot(111, projection='3d')
+
+        xs = np.arange(len(results))
+        ys = [v*0.5 for v in results.values()]
+
+        ax2.bar3d(xs, np.zeros(len(xs)), np.zeros(len(xs)),
+                  0.3, 0.3, ys)
+
+        ax2.set_xticks(xs)
+        ax2.set_xticklabels(list(results.keys()), fontsize=5, rotation=25)
+        ax2.set_zticks([])
+
         st.pyplot(fig2)
+        plt.close(fig2)
 
-    colC, colD = st.columns(2)
+    # ---------------- LINE ----------------
+    with c3:
+        st.caption("Trend")
 
-    with colC:
-        st.subheader("BMI & Glucose Distribution")
-        fig3, ax3 = plt.subplots(figsize=(4,3))
-        sns.violinplot(data=data[['BMI','Glucose']], ax=ax3)
+        labels = list(results.keys())
+        values = list(results.values())
+
+        fig3, ax3 = plt.subplots(figsize=(2.5,2.5))
+
+        ax3.plot(labels, values, marker='o', color='black')
+
+        for i, v in enumerate(values):
+            ax3.text(i, v+0.03, f"{round(v,2)}", fontsize=6, ha='center')
+
+        ax3.set_ylim(0,1.1)
+        ax3.set_xticks(range(len(labels)))
+        ax3.set_xticklabels(labels, fontsize=5, rotation=25)
+        ax3.set_yticks([])
+
         st.pyplot(fig3)
+        plt.close(fig3)
+        # -------------------------------
+# RECOMMENDATIONS + SCORE
+# -------------------------------
+st.markdown("---")
+st.subheader("Recommendations")
 
-    with colD:
-        st.subheader("Correlation Heatmap")
-        fig4, ax4 = plt.subplots(figsize=(4,3))
-        sns.heatmap(data.corr(), cmap='coolwarm', annot=False, ax=ax4)
-        st.pyplot(fig4)
+for disease, prob in results.items():
+    if prob > 0.6:
+        st.warning(f"High risk of {disease}")
+    elif prob > 0.3:
+        st.info(f"Moderate risk of {disease}")
+    else:
+        st.success(f"Low risk of {disease}")
 
-    # -------------------------------
-    # RECOMMENDATIONS
-    # -------------------------------
-    st.markdown("---")
-    st.subheader("Recommendations")
+# Overall score
+score = sum(results.values()) / len(results)
 
-    for disease, prob in results.items():
-        if prob > 0.6:
-            st.warning(f"High risk of {disease}")
-        elif prob > 0.3:
-            st.info(f"Moderate risk of {disease}")
-        else:
-            st.success(f"Low risk of {disease}")
-
-    score = sum(results.values())/len(results)
-    st.metric("Overall Risk Score", round(score,2))
+st.metric("Overall Risk Score", round(score,2))
