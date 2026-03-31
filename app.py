@@ -10,13 +10,13 @@ st.set_page_config(page_title="AI Health Pro", layout="wide")
 st.title("AI Based Multi Disease Prediction and Recommendation System")
 
 # -------------------------------
-# CONVERT
+# FUNCTION
 # -------------------------------
 def convert(v):
     return 0 if v=="LOW" else 1 if v=="MEDIUM" else 2
 
 # -------------------------------
-# INPUTS
+# INPUT
 # -------------------------------
 st.markdown("### Enter Patient Details")
 
@@ -69,16 +69,16 @@ X = data.drop(columns=['Diabetes','Heart','Hypertension','Obesity','Stroke','Liv
 
 models = {}
 for d in ['Diabetes','Heart','Hypertension','Obesity','Stroke','Liver']:
-    m = RandomForestClassifier()
-    m.fit(X, data[d])
-    models[d] = m
+    model = RandomForestClassifier()
+    model.fit(X, data[d])
+    models[d] = model
 
 # -------------------------------
 # BUTTON
 # -------------------------------
 if st.button("🔍 Predict Result"):
 
-    # encode
+    # Encode
     age_val = 0 if age < 30 else 1 if age < 60 else 2
     gender_val = 0 if gender=="Male" else 1
 
@@ -95,26 +95,28 @@ if st.button("🔍 Predict Result"):
         'Symptoms':(1 if fever=="Yes" else 0) + (1 if chest=="Yes" else 0)
     }])
 
+    # -------------------------------
+    # PREDICTION
+    # -------------------------------
     st.markdown("## Prediction Results")
 
     results = {}
-    for d,m in models.items():
-        results[d] = m.predict_proba(input_df)[0][1]
-        st.write(f"{d} → {round(results[d],2)}")
+    for d, m in models.items():
+        prob = m.predict_proba(input_df)[0][1]
+        results[d] = prob
+        st.write(f"{d} → {round(prob,2)}")
 
     st.markdown("---")
 
     # -------------------------------
-    # DASHBOARD (STRICT 3 CHARTS)
+    # DASHBOARD (3 CHARTS)
     # -------------------------------
     st.markdown("## Health Dashboard")
 
     c1, c2, c3 = st.columns(3)
 
-    # ---------------- RADAR ----------------
+    # RADAR
     with c1:
-        st.caption("Radar")
-
         labels = list(results.keys())
         values = list(results.values())
         values += values[:1]
@@ -135,10 +137,8 @@ if st.button("🔍 Predict Result"):
         st.pyplot(fig1)
         plt.close(fig1)
 
-    # ---------------- 3D ----------------
+    # 3D BAR
     with c2:
-        st.caption("3D")
-
         fig2 = plt.figure(figsize=(2.5,2.5))
         ax2 = fig2.add_subplot(111, projection='3d')
 
@@ -155,10 +155,8 @@ if st.button("🔍 Predict Result"):
         st.pyplot(fig2)
         plt.close(fig2)
 
-    # ---------------- LINE ----------------
+    # LINE CHART
     with c3:
-        st.caption("Trend")
-
         labels = list(results.keys())
         values = list(results.values())
 
@@ -176,21 +174,21 @@ if st.button("🔍 Predict Result"):
 
         st.pyplot(fig3)
         plt.close(fig3)
-        # -------------------------------
-# RECOMMENDATIONS + SCORE
-# -------------------------------
-st.markdown("---")
-st.subheader("Recommendations")
 
-for disease, prob in results.items():
-    if prob > 0.6:
-        st.warning(f"High risk of {disease}")
-    elif prob > 0.3:
-        st.info(f"Moderate risk of {disease}")
-    else:
-        st.success(f"Low risk of {disease}")
+    # -------------------------------
+    # RECOMMENDATIONS
+    # -------------------------------
+    st.markdown("---")
+    st.subheader("Recommendations")
 
-# Overall score
-score = sum(results.values()) / len(results)
+    for disease, prob in results.items():
+        if prob > 0.6:
+            st.warning(f"High risk of {disease}")
+        elif prob > 0.3:
+            st.info(f"Moderate risk of {disease}")
+        else:
+            st.success(f"Low risk of {disease}")
 
-st.metric("Overall Risk Score", round(score,2))
+    # Overall Score
+    score = sum(results.values()) / len(results)
+    st.metric("Overall Risk Score", round(score,2))
